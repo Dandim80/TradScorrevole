@@ -1,182 +1,166 @@
- 
-1	<!DOCTYPE html> 
-2	<html lang="it"> 
-3	<head> 
-4	    <meta charset="UTF-8"> 
-5	    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-6	    <title>Grafici Binance USDT</title> 
-7	    <script src="https://s3.tradingview.com/tv.js"></script> 
-8	    <style> 
-9	        body { 
-10	            font-family: Arial, sans-serif; 
-11	            background-color: #121212; 
-12	            color: white; 
-13	            text-align: center; 
-14	            padding-right: 20px; 
-15	        } 
-16	        .menu { 
-17	            margin: 10px; 
-18	        } 
-19	        .menu button { 
-20	            background-color: #ff9800; 
-21	            border: none; 
-22	            color: white; 
-23	            padding: 8px 12px; 
-24	            margin: 3px; 
-25	            cursor: pointer; 
-26	            font-size: 13px; 
-27	        } 
-28	        .menu button:disabled { 
-29	            background-color: #555; 
-30	            cursor: not-allowed; 
-31	        } 
-32	        .chart-container { 
-33	            width: 100%; 
-34	            height: 250px; /* Compattato del 50% */ 
-35	            margin: 5px 0; 
-36	        } 
-37	        .pagination { 
-38	            margin: 10px; 
-39	        } 
-40	        .pagination button { 
-41	            background-color: #ff9800; 
-42	            border: none; 
-43	            color: white; 
-44	            padding: 8px 12px; 
-45	            margin: 3px; 
-46	            cursor: pointer; 
-47	            font-size: 13px; 
-48	        } 
-49	        .pagination button:disabled { 
-50	            background-color: #555; 
-51	            cursor: not-allowed; 
-52	        } 
-53	    </style> 
-54	</head> 
-55	<body> 
-56	 
-57	    <h1>Grafici Binance - USDT (Top 15 per Volume)</h1> 
-58	     
-59	    <div class="menu"> 
-60	        <strong>Timeframe:</strong> 
-61	        <button onclick="changeTimeframe('1')">1m</button> 
-62	        <button onclick="changeTimeframe('5')">5m</button> 
-63	        <button onclick="changeTimeframe('15')">15m</button> 
-64	        <button onclick="changeTimeframe('60')">1h</button> 
-65	        <button onclick="changeTimeframe('240')">4h</button> 
-66	        <button onclick="changeTimeframe('D')">1d</button> 
-67	        <button id="addEMA" onclick="addEMA()">Aggiungi EMA</button> 
-68	    </div> 
-69	 
-70	    <div id="charts"></div> 
-71	     
-72	    <div class="pagination"> 
-73	        <button id="prevPage" disabled>◀ Pagina Precedente</button> 
-74	        <button id="nextPage">Pagina Successiva ▶</button> 
-75	    </div> 
-76	 
-77	    <script> 
-78	        let allPairs = []; 
-79	        let currentPage = 0; 
-80	        const pageSize = 15; 
-81	        let currentTimeframe = "5"; // Timeframe di default (1 ora) 
-82	        let emaAdded = false; 
-83	 
-84	        async function fetchTopUSDTpairs() { 
-85	            try { 
-86	                const response = await fetch("https://api.binance.com/api/v3/ticker/24hr"); 
-87	                const tickers = await response.json(); 
-88	 
-89	                const filteredPairs = tickers 
-90	                    .filter(t => t.symbol.endsWith("USDT")) 
-91	                    .map(t => ({ 
-92	                        symbol: t.symbol, 
-93	                        volume: parseFloat(t.quoteVolume) 
-94	                    })) 
-95	                    .sort((a, b) => b.volume - a.volume)  
-96	                    .map(t => t.symbol); 
-97	 
-98	                return filteredPairs; 
-99	            } catch (error) { 
-100	                console.error("Errore nel recupero delle coppie:", error); 
-101	                return []; 
-102	            } 
-103	        } 
-104	 
-105	        function loadCharts() { 
-106	            const container = document.getElementById("charts"); 
-107	            container.innerHTML = ""; 
-108	 
-109	            const start = currentPage * pageSize; 
-110	            const end = start + pageSize; 
-111	            const pairsToShow = allPairs.slice(start, end); 
-112	 
-113	            pairsToShow.forEach(pair => { 
-114	                const chartDiv = document.createElement("div"); 
-115	                chartDiv.className = "chart-container"; 
-116	                chartDiv.id = `chart_${pair}`; 
-117	                container.appendChild(chartDiv); 
-118	 
-119	                new TradingView.widget({ 
-120	                    "width": "100%", 
-121	                    "height": 250, // Compattato 
-122	                    "symbol": `BINANCE:${pair}`, 
-123	                    "interval": currentTimeframe, 
-124	                    "timezone": "Etc/UTC", 
-125	                    "theme": "dark", 
-126	                    "style": "1", 
-127	                    "locale": "it", 
-128	                    "toolbar_bg": "#f1f3f6", 
-129	                    "hide_top_toolbar": false, 
-130	                    "hide_legend": false, 
-131	                    "enable_publishing": false, 
-132	                    "container_id": `chart_${pair}`, 
-133	                    "hide_volume": true, 
-134	                    "studies": emaAdded ? [ 
-135	                        "MAExp@tv-basicstudies&length=5", 
-136	                        "MAExp@tv-basicstudies&length=10", 
-137	                        "MAExp@tv-basicstudies&length=60", 
-138	                        "MAExp@tv-basicstudies&length=223" 
-139	                    ] : [] 
-140	                }); 
-141	            }); 
-142	 
-143	            document.getElementById("prevPage").disabled = currentPage === 0; 
-144	            document.getElementById("nextPage").disabled = end >= allPairs.length; 
-145	        } 
-146	 
-147	        function changeTimeframe(timeframe) { 
-148	            currentTimeframe = timeframe; 
-149	            loadCharts(); 
-150	        } 
-151	 
-152	        function addEMA() { 
-153	            emaAdded = true; 
-154	            loadCharts(); 
-155	            document.getElementById("addEMA").disabled = true; // Disabilita il pulsante dopo l'uso 
-156	        } 
-157	 
-158	        async function init() { 
-159	            allPairs = await fetchTopUSDTpairs(); 
-160	            loadCharts(); 
-161	        } 
-162	 
-163	        document.getElementById("prevPage").addEventListener("click", () => { 
-164	            if (currentPage > 0) { 
-165	                currentPage--; 
-166	                loadCharts(); 
-167	            } 
-168	        }); 
-169	 
-170	        document.getElementById("nextPage").addEventListener("click", () => { 
-171	            if ((currentPage + 1) * pageSize < allPairs.length) { 
-172	                currentPage++; 
-173	                loadCharts(); 
-174	            } 
-175	        }); 
-176	 
-177	        init(); 
-178	    </script> 
-179	 
-180	</body> 
-181	</html> 
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grafici Binance USDT</title>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: white;
+            text-align: center;
+            padding-right: 20px;
+        }
+        .menu {
+            margin: 10px;
+        }
+        .menu button, .pagination button {
+            background-color: #ff9800;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            margin: 3px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .menu button:disabled, .pagination button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        .chart-container {
+            width: 100%;
+            height: 250px;
+            margin: 5px 0;
+        }
+        .pagination {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Grafici Binance - USDT (Top 15 per Volume)</h1>
+
+    <div class="menu">
+        <strong>Timeframe:</strong>
+        <button onclick="changeTimeframe('1')">1m</button>
+        <button onclick="changeTimeframe('5')">5m</button>
+        <button onclick="changeTimeframe('15')">15m</button>
+        <button onclick="changeTimeframe('60')">1h</button>
+        <button onclick="changeTimeframe('240')">4h</button>
+        <button onclick="changeTimeframe('D')">1d</button>
+        <button id="addEMA" onclick="addEMA()">Aggiungi EMA</button>
+    </div>
+
+    <div id="charts"></div>
+
+    <div class="pagination">
+        <button id="prevPage" disabled>◀ Pagina Precedente</button>
+        <button id="nextPage">Pagina Successiva ▶</button>
+    </div>
+
+    <script>
+        let allPairs = [];
+        let currentPage = 0;
+        const pageSize = 15;
+        let currentTimeframe = "5"; // Timeframe di default (5 minuti)
+        let emaAdded = false;
+
+        async function fetchTopUSDTpairs() {
+            try {
+                const response = await fetch("https://api.binance.com/api/v3/ticker/24hr");
+                if (!response.ok) throw new Error("Errore nella risposta API");
+                const tickers = await response.json();
+
+                return tickers
+                    .filter(t => t.symbol.endsWith("USDT"))
+                    .map(t => ({ symbol: t.symbol, volume: parseFloat(t.quoteVolume) }))
+                    .sort((a, b) => b.volume - a.volume)
+                    .map(t => t.symbol);
+            } catch (error) {
+                console.error("Errore nel recupero delle coppie:", error);
+                return [];
+            }
+        }
+
+        function loadCharts() {
+            const container = document.getElementById("charts");
+            container.innerHTML = "";
+
+            const start = currentPage * pageSize;
+            const end = start + pageSize;
+            const pairsToShow = allPairs.slice(start, end);
+
+            pairsToShow.forEach(pair => {
+                const chartDiv = document.createElement("div");
+                chartDiv.className = "chart-container";
+                chartDiv.id = `chart_${pair}`;
+                container.appendChild(chartDiv);
+
+                new TradingView.widget({
+                    "width": "100%",
+                    "height": 250,
+                    "symbol": `BINANCE:${pair}`,
+                    "interval": currentTimeframe,
+                    "timezone": "Etc/UTC",
+                    "theme": "dark",
+                    "style": "1",
+                    "locale": "it",
+                    "toolbar_bg": "#f1f3f6",
+                    "hide_top_toolbar": false,
+                    "hide_legend": false,
+                    "enable_publishing": false,
+                    "container_id": `chart_${pair}`,
+                    "hide_volume": true,
+                    "studies": emaAdded ? [
+                        "MAExp@tv-basicstudies&length=5",
+                        "MAExp@tv-basicstudies&length=10",
+                        "MAExp@tv-basicstudies&length=60",
+                        "MAExp@tv-basicstudies&length=223"
+                    ] : []
+                });
+            });
+
+            document.getElementById("prevPage").disabled = currentPage === 0;
+            document.getElementById("nextPage").disabled = end >= allPairs.length;
+        }
+
+        function changeTimeframe(timeframe) {
+            currentTimeframe = timeframe;
+            loadCharts();
+        }
+
+        function addEMA() {
+            emaAdded = true;
+            loadCharts();
+            document.getElementById("addEMA").disabled = true; // Disabilita il pulsante dopo l'uso
+        }
+
+        async function init() {
+            allPairs = await fetchTopUSDTpairs();
+            loadCharts();
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("prevPage").addEventListener("click", () => {
+                if (currentPage > 0) {
+                    currentPage--;
+                    loadCharts();
+                }
+            });
+
+            document.getElementById("nextPage").addEventListener("click", () => {
+                if ((currentPage + 1) * pageSize < allPairs.length) {
+                    currentPage++;
+                    loadCharts();
+                }
+            });
+
+            init();
+        });
+    </script>
+
+</body>
+</html>
